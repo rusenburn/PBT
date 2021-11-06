@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import List, Union
 from common.state import State
 import numpy as np
@@ -39,7 +40,7 @@ class TicTacToeState(State):
         assert self._is_game_over
         player = self._observation[2][0][0]
         other = (player + 1) % 2
-        wdl = np.zeros((3,), dtype=np.float32)
+        wdl = np.zeros((3,), dtype=np.int32)
         if self._is_winning(player):
             wdl[0] += 1
         elif self._is_winning(other):
@@ -48,7 +49,10 @@ class TicTacToeState(State):
             wdl[1] += 1
         return wdl
 
-    def move(self, action: int) -> State:
+    def move(self, action: int) -> TicTacToeState:
+        legal_actions = self.get_legal_actions()
+        if legal_actions[action] == 0:
+            raise ValueError(f'action {action} is not allowed')
         player = self._observation[2][0][0]
         next_player = (player + 1) % 2
         new_obs = self._observation.copy()
@@ -89,7 +93,7 @@ class TicTacToeState(State):
     def to_short(self) -> tuple:
         player = self._observation[2][0][0]
         space: np.ndarray = self._observation[0] - self._observation[1]
-        return (player, *space.flatten(),)
+        return (player, *space.copy().flatten(),)
 
     def _is_legal_action(self, action: int) -> bool:
         player_0 = 0

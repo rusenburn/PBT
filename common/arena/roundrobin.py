@@ -1,15 +1,14 @@
-from typing import List, Tuple
+from typing import Sequence, Tuple
 
-from numpy.core.numeric import indices
 from common.game import Game
-from arena.players import PlayerBase
-from arena.match import Match
+from common.arena.players import PlayerBase
+from common.arena.match import Match
 import numpy as np
 import copy
 
 
 class RoundRobin():
-    def __init__(self, game: Game, players: List[PlayerBase], n_sets: int, render=False) -> None:
+    def __init__(self, game: Game, players: Sequence[PlayerBase], n_sets: int, render=False) -> None:
         self.game = copy.deepcopy(game)
         self.players = players
         self.n_sets = n_sets
@@ -36,25 +35,25 @@ class RoundRobin():
         n_players: int = len(self.players)
         points: np.ndarray = np.zeros((n_players, 2), dtype=np.int32)
         points[:, 0] = np.zeros((n_players,), dtype=np.int32)
-        points[:, 1] = np.arange(n_players) # saving the old index of players
+        points[:, 1] = np.arange(n_players)  # saving the old index of players
         for i, r in enumerate(self.results):
             points[i, 0] = r[0] - r[2]
 
-        # insertion sort
         for i in range(len(points)):
-            val_1 = points[i, 0]
-            for j in range(i, len(points)):
-                val_2 = points[j, 0]
-                if val_2 > val_1:
-                    self._swap(points, i, j)
-        rankings = np.zeros((n_players,),dtype=np.int32)
-        for i,row in enumerate(points):
+            for j in range(i, 0, -1):
+                if points[j, 0] > points[j-1, 0]:
+                    self._swap(points, j, j-1)
+                else:
+                    break
+
+        rankings = np.zeros((n_players,), dtype=np.int32)
+        for i, row in enumerate(points):
             old_index = row[1]
             rankings[old_index] = i
-        
+
         return rankings
 
     def _swap(self, points: np.ndarray, i: int, j: int) -> None:
-        val = points[i]
+        val = points[i].copy()
         points[i] = points[j]
         points[j] = val

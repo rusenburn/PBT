@@ -1,5 +1,5 @@
 from common.game import Game
-from arena.players import PlayerBase
+from common.arena.players import PlayerBase
 import copy
 import numpy as np
 from common.state import State
@@ -19,6 +19,7 @@ class Match():
         for _ in range(self.n_sets):
             scores = self._play_set(starting_player)
             self.scores += scores
+            starting_player = 1-starting_player
         return self.scores
 
     def _play_set(self, starting_player) -> np.ndarray:
@@ -31,7 +32,8 @@ class Match():
                 state.render()
             player = players[current_player]
             a = player.choose_action(state)
-            if a not in state.get_legal_actions():
+            legal_actions = state.get_legal_actions()
+            if not legal_actions[a]:
                 print(f'player {current_player+1} chose wrong action {a}\n')
                 continue
             new_state: State
@@ -44,10 +46,6 @@ class Match():
                 if current_player != 0:
                     result = result[::-1]
                 break
-        # assert new_state.is_game_over()
-        # result: np.ndarray = new_state.game_result()
-        # if current_player != 0:
-        #     result = result[::-1]
         if self.render:
             state.render()
         return result

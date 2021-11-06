@@ -2,7 +2,7 @@ from typing import Tuple
 import torch.nn as nn
 from torch import Tensor
 from common.utils import get_device
-from networks.base import NNBase
+from common.networks.base import NNBase
 
 
 class SharedResNetwork(NNBase):
@@ -37,7 +37,7 @@ class SharedResNetwork(NNBase):
             nn.Linear(shape[1]*shape[2]*filters, fc_dims),
             nn.ReLU(),
             nn.Linear(fc_dims, 3))
-            
+
         device = get_device()
         self._blocks.to(device)
         self._shared.to(device)

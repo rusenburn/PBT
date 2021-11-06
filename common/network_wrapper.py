@@ -58,7 +58,7 @@ class TorchWrapper(NNWrapper):
         wdl: Tensor
         self._nn.eval()
         observation_t = T.tensor(
-            [observation], dtype=T.float32, device=get_device())
+            np.array([observation]), dtype=T.float32, device=get_device())
         with T.no_grad():
             probs, wdl = self._nn(observation_t)
 
@@ -88,11 +88,13 @@ class TrainDroplet(TorchWrapper):
         super().__init__(nnet)
         self.lr = lr
         self.ratio = ratio
+        self.base_lr = lr
 
     def perturb(self, other_droplet: TrainDroplet):
         state_dict = other_droplet.nn.state_dict()
         self._nn.load_state_dict(state_dict)
         randoms = np.random.randint(2, size=2)
+        self.base_lr = other_droplet.base_lr
         if randoms[0]:
             self.lr = other_droplet.lr / 1.2
         else:
@@ -101,3 +103,7 @@ class TrainDroplet(TorchWrapper):
             self.ratio = other_droplet.ratio / 1.2
         else:
             self.ratio = other_droplet.ratio * 1.2
+        
+
+    def __str__(self) -> str:
+        return f'Train Droplet base lr :{self.base_lr:0.2e} current lr: {self.lr:0.2e} AC Ratio:{self.ratio:0.2e}'

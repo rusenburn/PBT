@@ -1,7 +1,7 @@
 from typing import Tuple
 from common.state  import State
 from common.game import Game
-from tictactoe.state import TicTacToeState
+from games.tictactoe.state import TicTacToeState
 import numpy as np
 
 class TicTacToeGame(Game):
@@ -12,6 +12,10 @@ class TicTacToeGame(Game):
     @property
     def observation_space(self) -> tuple:
         return self._state.shape
+
+    @property
+    def n_actions(self) -> int:
+        return self._state.n_actions
 
     def _initialize_state(self)->None:
         self._state = TicTacToeState(np.zeros((3, 3, 3), dtype=np.int32))
@@ -24,3 +28,7 @@ class TicTacToeGame(Game):
     
     def render(self) -> None:
         return super().render()
+    
+    def reset(self) -> State:
+        self._initialize_state()
+        return self._state

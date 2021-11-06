@@ -1,3 +1,4 @@
+from copy import Error
 from typing import Dict, List, Set
 from common.game import Game
 from common.state import State
@@ -17,14 +18,14 @@ class NNMCTS():
         self.nsa: Dict[tuple, int] = {}
         self.ns: Dict[tuple, int] = {}
         self.ps: Dict[tuple, np.ndarray] = {}
-        self.wsa: Dict[tuple, float] = {}  # Wins
-        self.dsa: Dict[tuple, float] = {}  # draws
-        self.lsa: Dict[tuple, float] = {}  # losses
+        self.wsa: Dict[tuple, int] = {}  # Wins
+        self.dsa: Dict[tuple, int] = {}  # draws
+        self.lsa: Dict[tuple, int] = {}  # losses
 
     def search(self, state: State) -> np.ndarray:
-        return self._search(state)
+        return self._search(state,0)
 
-    def _search(self, state: State) -> np.ndarray:
+    def _search(self, state: State,depth:int) -> np.ndarray:
         if state.is_game_over():
             wdl = state.game_result()
             return wdl[::-1]
@@ -62,21 +63,20 @@ class NNMCTS():
                 max_u = u
                 best_a = a
 
+        if best_a == -1:
+            raise Error(f'Monte carlo tree search gave a non existing best action of {best_a}.')
         a = best_a
         new_state = state.move(a)
-        wdl = self._search(new_state)
+        wdl = self._search(new_state,depth=depth+1)
         if (*s, a) in self.wsa:
             self.wsa[(*s, a)] += wdl[0]
             self.dsa[(*s, a)] += wdl[1]
             self.lsa[(*s, a)] += wdl[2]
-            # self.qsa[(*s, a)] = (self.nsa[(*s, a)] *
-            #                      self.qsa[(*s, a)] + wdl) / (self.nsa[(*s, a)] + 1)
             self.nsa[(*s, a)] += 1
         else:
             self.wsa[(*s, a)] = wdl[0]
             self.dsa[(*s, a)] = wdl[1]
             self.lsa[(*s, a)] = wdl[2]
-            # self.qsa[(*s, a)] = wdl
             self.nsa[(*s, a)] = 1
         self.ns[s] += 1
         return wdl[::-1]
@@ -84,7 +84,7 @@ class NNMCTS():
     def get_probs(self, state: State, temperature: float = 1):
         assert not state.is_game_over()
         for _ in range(self.n_sims):
-            self._search(state)
+            self._search(state,0)
 
         s = state.to_short()
 

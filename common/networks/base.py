@@ -1,4 +1,4 @@
-from torch.functional import Tensor
+from typing import Tuple
 import torch.nn as nn
 from abc import ABC, abstractmethod
 from torch.functional import Tensor
@@ -12,7 +12,7 @@ class NNBase(nn.Module, ABC):
         self._file_name: str = os.path.join(checkpoint_directory, name)
 
     @abstractmethod
-    def forward(self) -> Tensor:
+    def forward(self,state:Tensor) -> Tuple[Tensor,Tensor]:
         pass
 
     def save_model(self, path: str = None) -> None:
