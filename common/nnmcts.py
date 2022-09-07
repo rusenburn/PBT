@@ -23,9 +23,9 @@ class NNMCTS():
         self.lsa: Dict[tuple, int] = {}  # losses
 
     def search(self, state: State) -> np.ndarray:
-        return self._search(state,0)
+        return self._search(state, 0)
 
-    def _search(self, state: State,depth:int) -> np.ndarray:
+    def _search(self, state: State, depth: int) -> np.ndarray:
         if state.is_game_over():
             wdl = state.game_result()
             return wdl[::-1]
@@ -64,10 +64,15 @@ class NNMCTS():
                 best_a = a
 
         if best_a == -1:
-            raise Error(f'Monte carlo tree search gave a non existing best action of {best_a}.')
+            print(
+                f'Warning :: a monte carlo tree search gave a non existing best action of {best_a}.')
+            best_actions = np.array(np.argwhere(
+                legal_actions == 1)).flatten()
+            best_action = np.random.choice(best_actions)
+            best_a = best_action
         a = best_a
         new_state = state.move(a)
-        wdl = self._search(new_state,depth=depth+1)
+        wdl = self._search(new_state, depth=depth+1)
         if (*s, a) in self.wsa:
             self.wsa[(*s, a)] += wdl[0]
             self.dsa[(*s, a)] += wdl[1]
@@ -81,10 +86,10 @@ class NNMCTS():
         self.ns[s] += 1
         return wdl[::-1]
 
-    def get_probs(self, state: State, temperature: float = 1):
+    def get_probs(self, state: State, temperature: float = 1)->np.ndarray:
         assert not state.is_game_over()
         for _ in range(self.n_sims):
-            self._search(state,0)
+            self._search(state, 0)
 
         s = state.to_short()
 
@@ -95,11 +100,12 @@ class NNMCTS():
             best_actions = np.array(np.argwhere(
                 counts == np.max(counts))).flatten()
             best_action = np.random.choice(best_actions)
-            probs: List[float] = [0] * len(counts)
+            probs:np.ndarray = np.zeros((len(counts),),dtype=np.float32)
+            # probs: List[float] = [0] * len(counts)
             probs[best_action] = 1
             return probs
 
         counts = [x**(1/temperature) for x in counts]
         counts_sum = float(sum(counts))
-        probs = [x/counts_sum for x in counts]
+        probs = np.array([x/counts_sum for x in counts],dtype=np.float32)
         return probs

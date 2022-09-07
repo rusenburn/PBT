@@ -5,6 +5,8 @@ from common.arena.players import PlayerBase
 from common.arena.match import Match
 import numpy as np
 import copy
+from tqdm import tqdm
+from common.utils import printProgressBar
 
 
 class RoundRobin():
@@ -15,8 +17,9 @@ class RoundRobin():
         self.render = render
         self.results = np.zeros((len(self.players), 3), dtype=np.int32)
 
-    def start(self) -> Tuple[np.ndarray, np.ndarray]:
-        for i in range(len(self.players)):
+    def start(self,print_progress=False) -> Tuple[np.ndarray, np.ndarray]:
+        n_players = len(self.players)
+        for i,_ in enumerate(tqdm(self.players,desc='Tournament') if print_progress else self.players):
             for j in range(i, len(self.players)):
                 if i == j:
                     continue
@@ -26,7 +29,7 @@ class RoundRobin():
                 m_score = m.start()
                 self.results[i] += m_score
                 self.results[j] += m_score[::-1]
-        n_players = len(self.players)
+        
         # TODO return proper rankings
         rankings = self._get_rankings()
         return self.results, rankings

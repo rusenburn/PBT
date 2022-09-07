@@ -79,6 +79,10 @@ class TorchWrapper(NNWrapper):
     def save_check_point(self, folder: Optional[str] = None, file: Optional[str] = None) -> None:
         path = None
         if folder and file:
+            try :
+                os.makedirs(folder,exist_ok=True)
+            finally:
+                ...
             path = os.path.join(folder, file)
         self.nn.save_model(path)
 

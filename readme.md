@@ -11,7 +11,7 @@
 * This implementation differs from the Paper by keeping track of the strongest agent so far by matching the strongest agents each iteration against the current strongest agent so far.
 
 ## Requirements
-* Python 3.9.7 environment.
+* Python 3.10.4 environment.
 * git.
 
 ## Steps
