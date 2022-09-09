@@ -9,7 +9,7 @@ class TicTacToeState(State):
         super().__init__()
         self._observation = observation
         self._legal_actions: Union[np.ndarray, None] = None
-        self._is_game_over = False
+        self._is_game_over : bool|None= None
 
     @property
     def shape(self) -> tuple:
@@ -30,6 +30,8 @@ class TicTacToeState(State):
         return legal_actions.copy()
 
     def is_game_over(self) -> bool:
+        if self._is_game_over is not None:
+            return self._is_game_over
         player_0: int = 0
         player_1: int = 1
         self._is_game_over = self._is_winning(
@@ -95,6 +97,8 @@ class TicTacToeState(State):
         space: np.ndarray = self._observation[0] - self._observation[1]
         return (player, *space.copy().flatten(),)
 
+    def get_symmetries(self, probs: np.ndarray) -> List[tuple[State, np.ndarray]]:
+        return []
     def _is_legal_action(self, action: int) -> bool:
         player_0 = 0
         player_1 = 1

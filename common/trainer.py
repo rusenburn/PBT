@@ -17,8 +17,7 @@ from tqdm import tqdm,trange
 import numpy as np
 import torch as T
 from torch.nn.utils.clip_grad import clip_grad_norm_
-from common.utils import get_device ,printProgressBar
-
+from common.utils import get_device
 
 class TrainerBase(ABC):
     def __init__(self) -> None:
@@ -30,7 +29,7 @@ class TrainerBase(ABC):
 
 
 class PBTTrainer(TrainerBase):
-    def __init__(self, game: Game, n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int) -> None:
+    def __init__(self, game: Game, n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int,network:SharedResNetwork|None) -> None:
         super().__init__()
         self.n_iterations = n_iterations
         self.n_episodes = n_episodes
@@ -42,7 +41,7 @@ class PBTTrainer(TrainerBase):
         self.networks: List[TrainDroplet] = []
         self.n_testing_sets = n_testing_sets
         base_network = SharedResNetwork(
-            self.game.observation_space, self.game.n_actions)
+            self.game.observation_space, self.game.n_actions) if network is None else network
         self.networks = self.initialize_droplets(n_population, base_network)
 
     def train(self) -> Iterator[NNWrapper]:
@@ -86,7 +85,7 @@ class PBTTrainer(TrainerBase):
             players: List[NNMCTSPlayer] = [NNMCTSPlayer(self.game, network, self.n_sims)
                                            for network in self.networks]
             tournament = RoundRobin(self.game, players, self.n_testing_sets)
-            results, rankings = tournament.start()
+            results, rankings = tournament.start(print_progress=True)
             print(rankings)
             networks = [n for n in self.networks]
             for j, network in enumerate(self.networks):
@@ -147,7 +146,10 @@ class PBTTrainer(TrainerBase):
         while True:
             player_mcts = players[current_player]
             probs = player_mcts.get_probs(state)
-            examples.append((state, probs, None, current_player))
+            examples.append((state,probs,None,current_player))
+            syms = state.get_symmetries(probs)
+            for s,p in syms:
+                examples.append((s, p, None, current_player))
             action = np.random.choice(len(probs), p=probs)
             state = state.move(action)
             current_player = 1 - current_player
@@ -163,10 +165,12 @@ class PBTTrainer(TrainerBase):
                        last_player) -> List[Tuple[State, np.ndarray, np.ndarray]]:
 
         inverted: np.ndarray = rewards[::-1]
-        fixed_examples: List[Tuple[State, np.ndarray, np.ndarray]] = []
-        for ex in examples:
-            fixed_examples.append((ex[0], ex[1], rewards if ex[3] ==
-                                   last_player else inverted))
+        # fixed_examples: List[Tuple[State, np.ndarray, np.ndarray]] = []
+        # for ex in examples:
+        #     fixed_examples.append((ex[0], ex[1], rewards if ex[3] ==
+        #                            last_player else inverted))
+        fixed_examples = [(ex[0], ex[1], rewards if ex[3] ==
+                                   last_player else inverted) for ex in examples]
             # ex[2] = rewards if ex[3] == last_player else inverted
         return fixed_examples
 

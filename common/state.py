@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import List
 import numpy as np
 
 class State(ABC):
@@ -51,4 +52,9 @@ class State(ABC):
         Returns short form for the current state
         can be used as a key
         '''
-        
+    @abstractmethod
+    def get_symmetries(self,probs:np.ndarray)->List[tuple[State,np.ndarray]]:
+        '''
+        Takes State action or action probs and returns 
+        List of equivalent states with provided probs
+        '''
