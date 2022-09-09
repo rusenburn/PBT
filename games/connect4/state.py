@@ -113,16 +113,8 @@ class ConnectFourState(State):
         if self._short is not None:
             return self._short
         player = self._observation[2][0][0]
-        first = 0
-        second = 0
-        n_cols = 7
-        for i,x in enumerate (self._observation[0]):
-            for j,y in enumerate(x):
-                first+= y << (i*n_cols +j)
-        for i,x in enumerate (self._observation[1]):
-            for j,y in enumerate(x):
-                second+= y << (i*n_cols +j)
-        self._short = (player, first,second)
+        space: np.ndarray = self._observation[0] - self._observation[1]
+        self._short = (player, *space.copy().flatten(),)
         return self._short
 
     def get_symmetries(self, probs: np.ndarray) -> List[tuple[State, np.ndarray]]:

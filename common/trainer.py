@@ -29,7 +29,7 @@ class TrainerBase(ABC):
 
 
 class PBTTrainer(TrainerBase):
-    def __init__(self, game: Game, n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int,network:SharedResNetwork|None) -> None:
+    def __init__(self, game: Game, n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int,network:SharedResNetwork|None=None) -> None:
         super().__init__()
         self.n_iterations = n_iterations
         self.n_episodes = n_episodes
