@@ -37,7 +37,7 @@ class SharedResNetwork(NNBase):
             nn.Linear(shape[1]*shape[2]*filters, fc_dims),
             nn.ReLU(),
             nn.Linear(fc_dims, 3))
-
+            
         device = get_device()
         self._blocks.to(device)
         self._shared.to(device)

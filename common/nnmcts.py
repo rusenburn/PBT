@@ -39,51 +39,6 @@ class NNMCTS():
         best_a: int
         max_u,  best_a = -float("inf"), -1
         legal_actions = state.get_legal_actions()
-        # for a, is_legal in enumerate(legal_actions):
-        #     if not is_legal:
-        #         continue
-        #     if (*s, a) not in self.nsa:
-        #         self.nsa[(*s, a)] = 0
-        #     if s not in self.ns:
-        #         self.ns[s] = 0
-        #     if (*s, a) in self.wsa:
-        #         wsa = self.wsa[(*s, a)]
-        #         lsa = self.lsa[(*s, a)]
-        #         nsa = self.nsa[(*s, a)]
-        #         qsa = (wsa - lsa) / nsa
-        #         u = qsa + self.cpuct * self.ps[s][a] * \
-        #             math.sqrt(self.ns[s]) / (1 + nsa)
-        #     else:
-        #         u = self.cpuct * \
-        #             self.ps[s][a] * \
-        #             math.sqrt(self.ns[s]) / (1 + self.nsa[(*s, a)])
-
-        #     if u > max_u:
-        #         max_u = u
-        #         best_a = a
-
-        # if best_a == -1:
-        #     # print(
-        #     #     f'Warning :: a monte carlo tree search gave a non existing best action of {best_a}.',end="")
-        #     best_actions = np.array(np.argwhere(
-        #         legal_actions == 1)).flatten()
-        #     best_action = np.random.choice(best_actions)
-        #     best_a = best_action
-        # a = best_a
-        # new_state = state.move(a)
-        # wdl = self._search(new_state, depth=depth+1)
-        # if (*s, a) in self.wsa:
-        #     self.wsa[(*s, a)] += wdl[0]
-        #     self.dsa[(*s, a)] += wdl[1]
-        #     self.lsa[(*s, a)] += wdl[2]
-        #     self.nsa[(*s, a)] += 1
-        # else:
-        #     self.wsa[(*s, a)] = wdl[0]
-        #     self.dsa[(*s, a)] = wdl[1]
-        #     self.lsa[(*s, a)] = wdl[2]
-        #     self.nsa[(*s, a)] = 1
-        # self.ns[s] += 1
-        # return wdl[::-1]
         for a, is_legal in enumerate(legal_actions):
             if not is_legal:
                 continue

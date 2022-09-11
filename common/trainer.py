@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 import time
-from typing import Generator, Iterator, List, Tuple, Union
+from typing import Iterator, List, Tuple, Union
 
 from common.arena.match import Match
 from torch.functional import Tensor
 from common.arena.players import NNMCTSPlayer
 from common.arena.roundrobin import RoundRobin
-from common.network_wrapper import TrainDroplet, NNWrapper
+from common.network_wrapper import TorchWrapper, TrainDroplet, NNWrapper
 from common.networks.base import NNBase
 from common.networks.basic_networks import SharedResNetwork
 from common.state import State
@@ -81,58 +81,62 @@ class PBTTrainer(TrainerBase):
 
             # Evaluating networks
             t_evalutuaion_1_start = time.time()
-            print('Evaluation Phase...')
-            players: List[NNMCTSPlayer] = [NNMCTSPlayer(self.game, network, self.n_sims)
-                                           for network in self.networks]
-            tournament = RoundRobin(self.game, players, self.n_testing_sets)
-            results, rankings = tournament.start(print_progress=True)
-            print(rankings)
-            networks = [n for n in self.networks]
-            for j, network in enumerate(self.networks):
-                network_rank = rankings[j]
-                networks[network_rank] = network
+            if i % 2 ==1 :
+                print('Evaluation Phase...')
+                players: List[NNMCTSPlayer] = [NNMCTSPlayer(self.game, network, self.n_sims)
+                                            for network in self.networks]
+                tournament = RoundRobin(self.game, players, self.n_testing_sets)
+                results, rankings = tournament.start(print_progress=True)
+                print(rankings)
+                networks = [n for n in self.networks]
+                for j, network in enumerate(self.networks):
+                    network_rank = rankings[j]
+                    networks[network_rank] = network
 
-            self.networks = networks
-            n_replaced_networks = int(self.n_population // 5)
-            for j in range(n_replaced_networks):
-                top_network = self.networks[j]
-                weak_network = self.networks[-j-1]
-                old_lr = weak_network.lr
-                old_r = weak_network.ratio
-                weak_network.perturb(top_network)
+                self.networks = networks
+                n_replaced_networks = int(self.n_population // 5)
+                for j in range(n_replaced_networks):
+                    top_network = self.networks[j]
+                    weak_network = self.networks[-j-1]
+                    old_lr = weak_network.lr
+                    old_r = weak_network.ratio
+                    weak_network.perturb(top_network)
+                    print(
+                        f'Changing network hyperparameters\nlr :{old_lr:0.2e} -> {weak_network.lr:0.2e}\nratio:{old_r:0.2e} -> {weak_network.ratio:0.2e}\n')
+
+                # Evaluating top network vs strongest network so far
+                t_evalutuaion_2_start = time.time()
+                top_network = self.networks[0]
+                top_network_player = NNMCTSPlayer(
+                    self.game, top_network, self.n_sims)
+                strongest_network_player = NNMCTSPlayer(
+                    self.game, strongest_network, self.n_sims)
+                match = Match(self.game, top_network_player,
+                            strongest_network_player, n_sets=self.n_testing_sets*self.n_population)
+                wdl = match.start()
+                win_ratio = (wdl[0]*2 + wdl[1])/(wdl.sum() * 2)
+                print(wdl)
                 print(
-                    f'Changing network hyperparameters\nlr :{old_lr:0.2e} -> {weak_network.lr:0.2e}\nratio:{old_r:0.2e} -> {weak_network.ratio:0.2e}\n')
-
-            # Evaluating top network vs strongest network so far
-            t_evalutuaion_2_start = time.time()
-            top_network = self.networks[0]
-            top_network_player = NNMCTSPlayer(
-                self.game, top_network, self.n_sims)
-            strongest_network_player = NNMCTSPlayer(
-                self.game, strongest_network, self.n_sims)
-            match = Match(self.game, top_network_player,
-                          strongest_network_player, n_sets=self.n_testing_sets*self.n_population)
-            wdl = match.start()
-            win_ratio = (wdl[0]*2 + wdl[1])/(wdl.sum() * 2)
-            print(wdl)
-            print(
-                f'win ratio against old strongest opponent: {win_ratio*100:0.2f}%')
-            if wdl[0] > wdl[2]:
-                strongest_network.nn.load_state_dict(
-                    top_network.nn.state_dict())
+                    f'win ratio against old strongest opponent: {win_ratio*100:0.2f}%')
+                if wdl[0] > wdl[2]:
+                    strongest_network.nn.load_state_dict(
+                        top_network.nn.state_dict())
             t_iteration_end = time.time()
             iteration_duration = t_iteration_end - t_collecting_start
             collecting_data_duration = t_training_start - t_collecting_start
             training_duration = t_evalutuaion_1_start - t_training_start
-            evaluation_1_duration = t_evalutuaion_2_start - t_evalutuaion_1_start
-            evaluation_2_duration = t_iteration_end - t_evalutuaion_2_start
+            
             print(f"Iteration\t\t {i+1}")
             print(f"Iteration Duration\t\t {iteration_duration:0.2f}")
             print(f"Collecting Data Duration\t\t {collecting_data_duration:0.2f}")
             print(f"Training Duration\t\t {training_duration:0.2f}")
-            print(f"Evaluation Phase1\t\t {evaluation_1_duration:0.2f}")
-            print(f"Evaluation Phase2\t\t {evaluation_2_duration:0.2f}")
+            if i%2 == 1:
+                evaluation_1_duration = t_evalutuaion_2_start - t_evalutuaion_1_start
+                evaluation_2_duration = t_iteration_end - t_evalutuaion_2_start
+                print(f"Evaluation Phase1\t\t {evaluation_1_duration:0.2f}")
+                print(f"Evaluation Phase2\t\t {evaluation_2_duration:0.2f}")
             yield strongest_network
+            self.n_sims+=1
         return strongest_network
 
     def execute_episode(self, p1: NNWrapper, p2: NNWrapper):
@@ -165,13 +169,8 @@ class PBTTrainer(TrainerBase):
                        last_player) -> List[Tuple[State, np.ndarray, np.ndarray]]:
 
         inverted: np.ndarray = rewards[::-1]
-        # fixed_examples: List[Tuple[State, np.ndarray, np.ndarray]] = []
-        # for ex in examples:
-        #     fixed_examples.append((ex[0], ex[1], rewards if ex[3] ==
-        #                            last_player else inverted))
         fixed_examples = [(ex[0], ex[1], rewards if ex[3] ==
                                    last_player else inverted) for ex in examples]
-            # ex[2] = rewards if ex[3] == last_player else inverted
         return fixed_examples
 
     def _train_network(self, network: TrainDroplet, obs: List[np.ndarray], probs: List[np.ndarray], wdl: List[np.ndarray]):
@@ -204,10 +203,9 @@ class PBTTrainer(TrainerBase):
                 total_loss.backward()
                 clip_grad_norm_(network.nn.parameters(), 0.5)
                 optimzer.step()
-
-        # obs_t = T.tensor(np.array(obs), dtype=T.float32, device=get_device())
-        # target_probs = T.tensor(np.array(probs), dtype=T.float32, device=get_device())
-        # target_wdl = T.tensor(np.array(wdl), dtype=T.float32, device=get_device())
+                
+        if T.cuda.is_available():
+            T.cuda.empty_cache()
 
     def _loss(self, target_probs: Tensor, predicted_probs: Tensor) -> Tensor:
         log_probs = predicted_probs.log()
