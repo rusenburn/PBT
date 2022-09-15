@@ -10,8 +10,10 @@ class State(ABC):
     @abstractmethod
     def get_legal_actions(self)->np.ndarray:
         '''
-        Returns binary numpy array with length of the number of actions
+        Returns binary numpy array with length of the number of actions, 
         legal actions have a value of 1
+        ex: if legal_action is [1,0,0,0,1] then legal_action[0] = 1 legal ,
+        but legal_action[1] is not
         '''
     
     @abstractmethod

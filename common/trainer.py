@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import time
-from typing import Iterator, List, Tuple, Union
+import concurrent.futures
+from typing import Callable, Iterator, List, Tuple, Union
 
 from common.arena.match import Match
 from torch.functional import Tensor
@@ -29,20 +30,22 @@ class TrainerBase(ABC):
 
 
 class PBTTrainer(TrainerBase):
-    def __init__(self, game: Game, n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int,network:SharedResNetwork|None=None) -> None:
+    def __init__(self, game_fn: Callable[[],Game], n_iterations: int, n_population: int, n_episodes: int, n_sims: int, n_epochs: int, n_batches: int, n_testing_sets: int,network:SharedResNetwork|None=None) -> None:
         super().__init__()
         self.n_iterations = n_iterations
         self.n_episodes = n_episodes
         self.n_sims = n_sims
-        self.game = game
+        self.game_fn = game_fn
         self.n_population = n_population
         self.n_epochs = n_epochs
         self.n_batches = n_batches
         self.networks: List[TrainDroplet] = []
         self.n_testing_sets = n_testing_sets
+        game = self.game_fn()
         base_network = SharedResNetwork(
-            self.game.observation_space, self.game.n_actions) if network is None else network
+            game.observation_space, game.n_actions) if network is None else network
         self.networks = self.initialize_droplets(n_population, base_network)
+        self.n_game_actions = game.n_actions
 
     def train(self) -> Iterator[NNWrapper]:
         strongest_network = copy.deepcopy(self.networks[0])
@@ -54,9 +57,11 @@ class PBTTrainer(TrainerBase):
             n_rounds = int(self.n_episodes // (len(self.networks)))
             examples = []
             for j in trange(n_rounds,desc="Collecting Data"):
-                if j and j % 8 == 0:  # selfplay
+                executes = []
+                if j % 8 == 0:  # selfplay
                     for p in self.networks:
-                        examples += self.execute_episode(p, p)
+                        # examples += self.execute_episode(p, p)
+                        executes.append((p,p))
                 else:  # play against each other
                     indices: np.ndarray
                     indices = np.arange(0, len(self.networks))
@@ -66,9 +71,12 @@ class PBTTrainer(TrainerBase):
                     for ind in indices:
                         p1 = self.networks[ind[0]]
                         p2 = self.networks[ind[1]]
-                        examples += self.execute_episode(p1, p2)
-                        examples += self.execute_episode(p2, p1)
-            # Important TODO , Check if this line is correct
+                        executes.append((p1,p2))
+                        executes.append((p2,p1))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                    a = executor.map(self.execute_episode_process, executes)
+                    examples+= [y for x in a for y in x]
+
             states, probs, wdl = list(zip(*examples))
             obs = [state.to_obs() for state in states]
             t_training_start = time.time()
@@ -83,9 +91,9 @@ class PBTTrainer(TrainerBase):
             t_evalutuaion_1_start = time.time()
             if i % 2 ==1 :
                 print('Evaluation Phase...')
-                players: List[NNMCTSPlayer] = [NNMCTSPlayer(self.game, network, self.n_sims)
+                players: List[NNMCTSPlayer] = [NNMCTSPlayer(self.n_game_actions, network, self.n_sims)
                                             for network in self.networks]
-                tournament = RoundRobin(self.game, players, self.n_testing_sets)
+                tournament = RoundRobin(self.game_fn, players, self.n_testing_sets)
                 results, rankings = tournament.start(print_progress=True)
                 print(rankings)
                 networks = [n for n in self.networks]
@@ -108,10 +116,11 @@ class PBTTrainer(TrainerBase):
                 t_evalutuaion_2_start = time.time()
                 top_network = self.networks[0]
                 top_network_player = NNMCTSPlayer(
-                    self.game, top_network, self.n_sims)
+                    self.n_game_actions, top_network, self.n_sims)
                 strongest_network_player = NNMCTSPlayer(
-                    self.game, strongest_network, self.n_sims)
-                match = Match(self.game, top_network_player,
+                    self.n_game_actions, strongest_network, self.n_sims)
+
+                match = Match(self.game_fn, top_network_player,
                             strongest_network_player, n_sets=self.n_testing_sets*self.n_population)
                 wdl = match.start()
                 win_ratio = (wdl[0]*2 + wdl[1])/(wdl.sum() * 2)
@@ -136,15 +145,20 @@ class PBTTrainer(TrainerBase):
                 print(f"Evaluation Phase1\t\t {evaluation_1_duration:0.2f}")
                 print(f"Evaluation Phase2\t\t {evaluation_2_duration:0.2f}")
             yield strongest_network
-            self.n_sims+=1
+            # self.n_sims+=1
         return strongest_network
+
+    def execute_episode_process(self,args):
+        p1 : NNWrapper = args[0]
+        p2 : NNWrapper = args[1]
+        return self.execute_episode(p1,p2)
 
     def execute_episode(self, p1: NNWrapper, p2: NNWrapper):
         examples: List[Tuple[State, np.ndarray,
                              Union[np.ndarray, None], int]] = []
-        game = copy.deepcopy(self.game)
-        players = [NNMCTS(game, p1, self.n_sims),
-                   NNMCTS(game, p2, self.n_sims)]
+        game = self.game_fn()
+        players = [NNMCTS(self.n_game_actions, p1, self.n_sims),
+                   NNMCTS(self.n_game_actions, p2, self.n_sims)]
         state = game.reset()
         current_player = 0
         while True:

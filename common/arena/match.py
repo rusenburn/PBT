@@ -1,15 +1,16 @@
+from typing import Callable
 from common.game import Game
 from common.arena.players import PlayerBase
-import copy
 import numpy as np
 from common.state import State
 
 
 class Match():
-    def __init__(self, game: Game, player_1: PlayerBase, player_2: PlayerBase, n_sets=1, render=False) -> None:
+    def __init__(self, game_fn: Callable[[],Game], player_1: PlayerBase, player_2: PlayerBase, n_sets=1, render=False) -> None:
         self.player_1 = player_1
         self.player_2 = player_2
-        self.game = copy.deepcopy(game)
+        self.game_fn = game_fn
+        self.game = game_fn()
         self.n_sets = n_sets
         self.render = render
         self.scores = np.zeros((3,), dtype=np.int32)  # W - D - L for player_1

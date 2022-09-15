@@ -1,38 +1,60 @@
-from typing import Sequence, Tuple
+import concurrent.futures
+from threading import Lock
+from typing import Callable, List, Sequence, Tuple
 
 from common.game import Game
 from common.arena.players import PlayerBase
 from common.arena.match import Match
 import numpy as np
-import copy
 from tqdm import tqdm
-from common.utils import printProgressBar
 
 
 class RoundRobin():
-    def __init__(self, game: Game, players: Sequence[PlayerBase], n_sets: int, render=False) -> None:
-        self.game = copy.deepcopy(game)
+    def __init__(self, game_fn: Callable[[],Game], players: Sequence[PlayerBase], n_sets: int, render=False) -> None:
+        self.game_fn = game_fn
+        self.game = game_fn()
         self.players = players
         self.n_sets = n_sets
         self.render = render
+        self.lock = Lock()
         self.results = np.zeros((len(self.players), 3), dtype=np.int32)
 
     def start(self,print_progress=False) -> Tuple[np.ndarray, np.ndarray]:
         n_players = len(self.players)
-        for i,_ in enumerate(tqdm(self.players,desc='Tournament') if print_progress else self.players):
+        executes :List[Tuple[int,int]]= []
+        for i,_ in enumerate(self.players,):
             for j in range(i, len(self.players)):
                 if i == j:
                     continue
-                p1 = self.players[i]
-                p2 = self.players[j]
-                m = Match(self.game, p1, p2, self.n_sets, self.render)
-                m_score = m.start()
-                self.results[i] += m_score
-                self.results[j] += m_score[::-1]
-        
+                executes.append((i,j))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                    a = tqdm(executor.map(self.execute_match, executes),desc='Tournament')
+
+        if print_progress:
+            [x for x in a]
+        # the number of wins is equal to the number of losses
+        assert np.sum(self.results[:,0]) == np.sum(self.results[:,-1])
+
+        # assert that result has the correct sum
+        s_expected = n_players * (n_players-1) / 2 * self.n_sets * 2 # the last 2 because each game adds 1 win and 1 loss or 2 draws
+        s_actual = np.sum(self.results)
+        assert s_expected == s_actual
+
         # TODO return proper rankings
         rankings = self._get_rankings()
         return self.results, rankings
+
+    def execute_match(self,args):
+        p1_idx:int = args[0]
+        p2_idx:int = args[1]
+        p1 = self.players[p1_idx]
+        p2 = self.players[p2_idx]
+        m = Match(self.game_fn,p1,p2,self.n_sets,self.render)
+        m_score = m.start()
+        with self.lock:
+            self.results[p1_idx]+= m_score
+            self.results[p2_idx]+= m_score[::-1]
+        
 
     def _get_rankings(self) -> np.ndarray:
         n_players: int = len(self.players)
