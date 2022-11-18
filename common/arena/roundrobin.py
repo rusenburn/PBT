@@ -12,6 +12,8 @@ from tqdm import tqdm
 class RoundRobin():
     def __init__(self, game_fn: Callable[[],Game], players: Sequence[PlayerBase], n_sets: int, render=False) -> None:
         self.game_fn = game_fn
+
+        # TODO delete game if it is not needed
         self.game = game_fn()
         self.players = players
         self.n_sets = n_sets
@@ -71,6 +73,9 @@ class RoundRobin():
                 else:
                     break
 
+        # ranking provides the new ranking ordered accoring to the previous ranking
+        # ex: if ranking = [3,2,1,0] then the player that took the 0 rank previously fell down
+        # to 3 and the previously ranked 1 now has a new rank of 2 etc            
         rankings = np.zeros((n_players,), dtype=np.int32)
         for i, row in enumerate(points):
             old_index = row[1]

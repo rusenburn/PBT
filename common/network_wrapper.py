@@ -61,7 +61,6 @@ class TorchWrapper(NNWrapper):
             np.array([observation]), dtype=T.float32, device=get_device())
         with T.no_grad():
             probs, wdl = self._nn(observation_t)
-
         probs_ar = probs.data.cpu().numpy()[0]
         wdl_ar: np.ndarray = wdl.data.cpu().numpy()[0]
         return probs_ar, wdl_ar

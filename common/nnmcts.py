@@ -1,4 +1,5 @@
 from typing import Dict, List, Set
+from common.evaluators import Evaluator
 from common.state import State
 from common.network_wrapper import NNWrapper
 import numpy as np
@@ -24,15 +25,15 @@ class NNMCTS():
 
     def _search(self, state: State, depth: int) -> np.ndarray:
         if state.is_game_over():
-            wdl = state.game_result()
-            return wdl[::-1]
+            wdl = state.game_result() # [0,0,1]
+            return wdl[::-1] # [1,0,0]
 
         s = state.to_short()
         if s not in self.visited:
             self.visited.add(s)
             obs = state.to_obs()
-            self.ps[s], wdl = self.nnet.predict(obs)
-            return wdl[::-1]
+            self.ps[s], wdl = self.nnet.predict(obs) # [0.6,0,0.4]
+            return wdl[::-1] 
         max_u: float
         best_a: int
         max_u,  best_a = -float("inf"), -1
@@ -116,9 +117,9 @@ class NNMCTS2():
     does not work on non deterministic env because it assumes
     that performing an action will always give the same state
     '''
-    def __init__(self, n_game_actions, nnet: NNWrapper, n_sims: int, cpuct=1) -> None:
+    def __init__(self, n_game_actions:int, evaluator: Evaluator, n_sims: int, cpuct=1) -> None:
         self.n_game_actions = n_game_actions
-        self.nnet = nnet
+        self.evaluator = evaluator
         self.n_sims = n_sims
         self.cpuct = cpuct
         self.parent_node: Node | None= None
@@ -126,12 +127,12 @@ class NNMCTS2():
     def search(self, state: State) -> np.ndarray:
         if self.parent_node is None or self.parent_node.state != state:
             self.parent_node = Node(state,self.n_game_actions,self.cpuct)
-        return self.parent_node.search(self.nnet)
+        return self.parent_node.search(self.evaluator)
 
     def get_probs(self, state: State, temperature: float = 1)->np.ndarray:
         assert not state.is_game_over()
         self.parent_node = Node(state,self.n_game_actions,self.cpuct)
-        return self.parent_node.search_and_get_probs(self.nnet,self.n_sims,temperature)
+        return self.parent_node.search_and_get_probs(self.evaluator,self.n_sims,temperature)
 
 class Node:
     def __init__(self,state:State ,n_game_actions:int,cpuct=1) -> None:
@@ -153,7 +154,7 @@ class Node:
         self.game_result :np.ndarray|None= None
         
     
-    def search(self,nnet:NNWrapper)->np.ndarray:
+    def search(self,evaluator:Evaluator)->np.ndarray:
         # check if we cached game over
         if self.is_game_over is None:
             self.is_game_over = self.state.is_game_over()
@@ -162,12 +163,12 @@ class Node:
         if self.is_game_over:
             if self.game_result is None:
                 self.game_result = self.state.game_result()
-                return self.game_result[::-1]
+            return self.game_result[::-1]
         
         if self.actions_legality is None: # first time visit
             self.actions_legality =  self.state.get_legal_actions()
-            self.children = [None for action in self.actions_legality]
-            probs , wdl = nnet.predict(self.state.to_obs())
+            self.children = [None for _ in self.actions_legality]
+            probs , wdl = evaluator.evaluate(self.state)
             self.probs = probs
             return wdl[::-1]
         
@@ -180,7 +181,7 @@ class Node:
 
         assert new_node is not None
 
-        wdl = new_node.search(nnet)
+        wdl = new_node.search(evaluator)
         self.wa[a] += wdl[0]
         self.da[a] += wdl[1]
         self.la[a] += wdl[2]
@@ -200,7 +201,7 @@ class Node:
         if temperature == 0:
             max_action_visits = np.max(action_visits)
             best_actions = np.array(np.argwhere(action_visits == max_action_visits)).flatten()
-            best_action = np.random.choice(best_actions)
+            best_action = np.random.choice(best_actions)    
             
             probs : np.ndarray = np.zeros((len(action_visits),),dtype=np.float32)
             probs[best_action] = 1
@@ -211,13 +212,13 @@ class Node:
         probs = probs_with_temperature/probs_with_temperature.sum()
         return probs
     
-    def search_and_get_probs(self,nnet:NNWrapper,n_sims:int,temperature:float=1)->np.ndarray:
+    def search_and_get_probs(self,evaluator:Evaluator,n_sims:int,temperature:float=1)->np.ndarray:
         if self.is_game_over is None:
             self.is_game_over = self.state.is_game_over()
             assert not self.is_game_over
         
         for _ in range(n_sims):
-            self.search(nnet)
+            self.search(evaluator)
         
         probs = self.get_probs(temperature)
         return probs

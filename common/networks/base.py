@@ -43,3 +43,4 @@ class NNBase(nn.Module, ABC):
             print(f'The nn was loaded from {path}')
         except:
             print(f'could not load nn from {path}')
+

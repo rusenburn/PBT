@@ -3,7 +3,8 @@ import torch.nn as nn
 from torch import Tensor
 from common.utils import get_device
 from common.networks.base import NNBase
-
+import numpy as np
+import torch as T
 
 class SharedResNetwork(NNBase):
     def __init__(self,
@@ -99,3 +100,25 @@ class SqueezeAndExcite(nn.Module):
                                                   1, shape_[-2], shape_[-1]))
         output = (input_*z) + b
         return output
+
+class RolloutPolicyNetwork(NNBase):
+    def __init__(self,shape: tuple,n_actions: int) -> None:
+        super().__init__(name='rollout_policy_network',
+                 checkpoint_directory='tmp')
+        filters = 3
+        fc_dims = 128
+        self._pi_head = nn.Sequential(
+            nn.Conv2d(shape[0], filters, 3, 1, 1,dtype=T.float32),
+            nn.Flatten(),
+            nn.Linear(shape[1]*shape[2]*filters, fc_dims),
+            nn.ReLU(),
+            nn.Linear(fc_dims, n_actions))
+        self._pi_head.to(get_device())
+
+    def forward(self,state:Tensor):
+        pi: Tensor = self._pi_head(state)
+        probs: Tensor = pi.softmax(dim=-1)
+        v : Tensor = T.tensor(np.zeros((state.size()[0],3)),dtype=T.float32)
+        return probs, v
+
+        

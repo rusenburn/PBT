@@ -3,6 +3,7 @@ import time
 import concurrent.futures
 from typing import Callable, Iterator, List, Tuple, Union
 
+from common.evaluators import DeepNNEvaluator
 from common.arena.match import Match
 from torch.functional import Tensor
 from common.arena.players import NNMCTSPlayer
@@ -12,7 +13,7 @@ from common.networks.base import NNBase
 from common.networks.basic_networks import SharedResNetwork
 from common.state import State
 from common.game import Game
-from common.nnmcts import NNMCTS
+from common.nnmcts import NNMCTS, NNMCTS2
 import copy
 from tqdm import tqdm,trange
 import numpy as np
@@ -51,17 +52,21 @@ class PBTTrainer(TrainerBase):
         strongest_network = copy.deepcopy(self.networks[0])
         examples: List[Tuple[State, np.ndarray, np.ndarray]]
         for i in range(self.n_iterations):
+
             t_collecting_start = time.time()
             assert self.n_episodes % (len(self.networks)) == 0
             print(f'Iteration {i+1} out of {self.n_iterations}')
             n_rounds = int(self.n_episodes // (len(self.networks)))
             examples = []
+
             for j in trange(n_rounds,desc="Collecting Data"):
+
                 executes = []
+
                 if j % 8 == 0:  # selfplay
                     for p in self.networks:
-                        # examples += self.execute_episode(p, p)
                         executes.append((p,p))
+
                 else:  # play against each other
                     indices: np.ndarray
                     indices = np.arange(0, len(self.networks))
@@ -80,11 +85,11 @@ class PBTTrainer(TrainerBase):
             states, probs, wdl = list(zip(*examples))
             obs = [state.to_obs() for state in states]
             t_training_start = time.time()
+
             # Training each network from examples
             print(f'Training Using {len(examples)} Examples...')
             for j, network in enumerate(tqdm(self.networks,desc="Training Networks")):
                 if network:
-                    # print(f'Training Network No {j}.')
                     self._train_network(network, obs, probs, wdl)
 
             # Evaluating networks
@@ -145,7 +150,6 @@ class PBTTrainer(TrainerBase):
                 print(f"Evaluation Phase1\t\t {evaluation_1_duration:0.2f}")
                 print(f"Evaluation Phase2\t\t {evaluation_2_duration:0.2f}")
             yield strongest_network
-            # self.n_sims+=1
         return strongest_network
 
     def execute_episode_process(self,args):
@@ -157,6 +161,8 @@ class PBTTrainer(TrainerBase):
         examples: List[Tuple[State, np.ndarray,
                              Union[np.ndarray, None], int]] = []
         game = self.game_fn()
+        # players = [NNMCTS2(self.n_game_actions, DeepNNEvaluator(p1), self.n_sims),
+        #            NNMCTS2(self.n_game_actions, DeepNNEvaluator(p2), self.n_sims)]
         players = [NNMCTS(self.n_game_actions, p1, self.n_sims),
                    NNMCTS(self.n_game_actions, p2, self.n_sims)]
         state = game.reset()

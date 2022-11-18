@@ -17,6 +17,7 @@ class Match():
 
     def start(self) -> np.ndarray:
         starting_player = 0
+        s = self.game.reset()
         for _ in range(self.n_sets):
             scores = self._play_set(starting_player)
             self.scores += scores
