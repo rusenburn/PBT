@@ -1,11 +1,14 @@
 from abc import ABC,abstractmethod
-from time import time
+from time import time,perf_counter
+
 from typing import Callable
 from common.evaluators import Evaluator
 from common.state import State
 from common.game import Game
 from common.network_wrapper import NNWrapper
 from common.nnmcts import NNMCTS, NNMCTS2
+from common.amcts import AMCTS
+
 import numpy as np
 
 
@@ -64,6 +67,23 @@ class NNMCTS2Player(PlayerBase):
         print(f"sims per second\t  {self.n_sims/duration:0.2f}")
         return a
 
+
+class AMCTSPlayer(PlayerBase):
+    def __init__(self,n_game_actions:int,nn_wrapper:NNWrapper,n_sims:int,temperature=0.5) -> None:
+        super().__init__()
+        self._n_game_actions:int = n_game_actions
+        self._nn_wrapper = nn_wrapper
+        self._n_sims = n_sims
+        self._temperature = temperature
+    
+    def choose_action(self, state: State) -> int:
+        mcts = AMCTS(state,self._n_game_actions,self._nn_wrapper.nn,1.0)
+        t_start = perf_counter()
+        probs = mcts.search(self._n_sims,0,self._temperature)
+        a = np.random.choice(self._n_game_actions,p=probs)
+        duration = perf_counter() - t_start
+        print(f"sims per second async\t  {self._n_sims/duration:0.2f}")
+        return a
 # class DualNNMCTSPlayer(PlayerBase):
 #     '''
 #     Used for debug purposes only to check 

@@ -113,8 +113,8 @@ class NNMCTS():
 
 class NNMCTS2():
     '''
-    Just like a first NNMCTS except that it saves the states
-    does not work on non deterministic env because it assumes
+    Just like a first NNMCTS except that it saves the states,
+    does not work on a non deterministic env because it assumes
     that performing an action will always give the same state
     '''
     def __init__(self, n_game_actions:int, evaluator: Evaluator, n_sims: int, cpuct=1) -> None:
