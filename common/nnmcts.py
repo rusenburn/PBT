@@ -1,4 +1,5 @@
 from typing import Dict, List, Set
+from abc import ABC,abstractmethod
 from common.evaluators import Evaluator
 from common.state import State
 from common.network_wrapper import NNWrapper
@@ -6,12 +7,21 @@ import numpy as np
 import math
 
 
-class NNMCTS():
-    def __init__(self, n_game_actions, nnet: NNWrapper, n_sims: int, cpuct=1) -> None:
+class MctsBase(ABC):
+    def __init__(self) -> None:
+        super().__init__()
+    
+    @abstractmethod
+    def search(self, state: State) -> np.ndarray:
+        raise NotImplementedError()
+
+class NNMCTS(MctsBase):
+    def __init__(self, n_game_actions:int, nnet: NNWrapper, n_sims: int, cpuct=1,temperature=0.5) -> None:
         self.n_game_actions = n_game_actions
         self.nnet = nnet
         self.n_sims = n_sims
         self.cpuct = cpuct
+        self.temperature = temperature
         self.visited: Set[tuple] = set()
         self.nsa: Dict[tuple, int] = {}
         self.ns: Dict[tuple, int] = {}
@@ -21,7 +31,7 @@ class NNMCTS():
         self.lsa: Dict[tuple, int] = {}  # losses
 
     def search(self, state: State) -> np.ndarray:
-        return self._search(state, 0)
+        return self.get_probs(state)
 
     def _search(self, state: State, depth: int) -> np.ndarray:
         if state.is_game_over():
@@ -91,9 +101,6 @@ class NNMCTS():
 
         s = state.to_short()
 
-        # counts: List[float] = [self.nsa[(*s, a)] if(*s, a)
-        #                        in self.nsa else 0 for a in range(self.game.n_actions)]
-
         counts: List[float] = [self.nsa[(s, a)] if(s, a)
                                in self.nsa else 0 for a in range(self.n_game_actions)]
 
@@ -102,7 +109,6 @@ class NNMCTS():
                 counts == np.max(counts))).flatten()
             best_action = np.random.choice(best_actions)
             probs:np.ndarray = np.zeros((len(counts),),dtype=np.float32)
-            # probs: List[float] = [0] * len(counts)
             probs[best_action] = 1
             return probs
 
@@ -111,28 +117,27 @@ class NNMCTS():
         probs = np.array([x/counts_sum for x in counts],dtype=np.float32)
         return probs
 
-class NNMCTS2():
+class NNMCTS2(MctsBase):
     '''
     Just like a first NNMCTS except that it saves the states,
     does not work on a non deterministic env because it assumes
     that performing an action will always give the same state
     '''
-    def __init__(self, n_game_actions:int, evaluator: Evaluator, n_sims: int, cpuct=1) -> None:
+    def __init__(self, n_game_actions:int, evaluator: Evaluator, n_sims: int, cpuct:float=1,temperature:float=1) -> None:
         self.n_game_actions = n_game_actions
         self.evaluator = evaluator
         self.n_sims = n_sims
         self.cpuct = cpuct
+        self.temperature = temperature
         self.parent_node: Node | None= None
 
     def search(self, state: State) -> np.ndarray:
-        if self.parent_node is None or self.parent_node.state != state:
-            self.parent_node = Node(state,self.n_game_actions,self.cpuct)
-        return self.parent_node.search(self.evaluator)
+        return self.get_probs(state)
 
-    def get_probs(self, state: State, temperature: float = 1)->np.ndarray:
+    def get_probs(self, state: State)->np.ndarray:
         assert not state.is_game_over()
         self.parent_node = Node(state,self.n_game_actions,self.cpuct)
-        return self.parent_node.search_and_get_probs(self.evaluator,self.n_sims,temperature)
+        return self.parent_node.search_and_get_probs(self.evaluator,self.n_sims,self.temperature)
 
 class Node:
     def __init__(self,state:State ,n_game_actions:int,cpuct=1) -> None:

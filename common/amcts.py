@@ -6,13 +6,14 @@ import time
 from common.state import State
 from common.networks.base import NNBase
 from common.utils import get_device
+from .nnmcts import MctsBase
 
 MAX_ASYNC_SIMULATIONS = 4
-DEFAULT_N = 3
-DEFAULT_W = -3
+DEFAULT_N = 1
+DEFAULT_W = -1
 
 
-class AMCTS():
+class AMCTS(MctsBase):
     '''
     Asynchronous Monte Carlo Tree Search ( Not a truly asynchronous ),
     visiting a new state does not immediately evaluate that state
@@ -26,11 +27,14 @@ class AMCTS():
         * adds a little noise which can be considered as a pro too
         * too heavy if the device is a CPU
     '''
-    def __init__(self, state: State, n_game_actions: int, nnet: NNBase, c: float) -> None:
+    def __init__(self, n_game_actions: int, nnet: NNBase,n_sims:int, duration_in_millis: float,c: float,temperature:float) -> None:
         self._nnet: NNBase = nnet
         self._c = c
         self._n_game_actions = n_game_actions
-        self._root: State = state
+        self._n_sims:int = n_sims
+        self._duration_in_millis = duration_in_millis
+        self._temperature = temperature
+        self._root: State|None = None
         self._states: set[tuple] = set()
         self._states_actions: dict[tuple, list[State | None]] = dict()
         self._ns: dict[tuple, int] = dict()
@@ -40,6 +44,10 @@ class AMCTS():
         self._actions_legality: dict[tuple, np.ndarray] = dict()
         self._rollouts: list[tuple[State, list[tuple[tuple, int]]]] = []
 
+    def search(self,state:State)->np.ndarray:
+        self._root = state
+        return self._search_root(self._n_sims,self._duration_in_millis,self._temperature)
+        ...
     def simulate(self, state: State, visited_path: list[tuple[tuple, int]] = None):
         if visited_path is None:
             visited_path = []
@@ -160,7 +168,8 @@ class AMCTS():
 
         self._rollouts.clear()
 
-    def search(self, n_sims: int, duration_in_millis: float, temperature: float = 1.0) -> np.ndarray:
+    def _search_root(self, n_sims: int, duration_in_millis: float, temperature: float = 1.0) -> np.ndarray:
+        assert self._root is not None
         duration_in_seconds = duration_in_millis/1000
         t_start = time.perf_counter()
         t_end = t_start + duration_in_seconds
@@ -177,12 +186,10 @@ class AMCTS():
             i += 1
 
         self._roll()
-        if False:
-            duration = time.perf_counter() - t_start
-            print(f"{i/duration:0.2f} itertration per second.")
         return self._get_probs(temperature)
 
     def _get_probs(self, temperature: float) -> np.ndarray:
+        assert self._root is not None
         short = self._root.to_short()
         action_visits = self._nsa[short]
         if temperature == 0:

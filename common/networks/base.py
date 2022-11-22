@@ -15,7 +15,7 @@ class NNBase(nn.Module, ABC):
     def forward(self,state:Tensor) -> Tuple[Tensor,Tensor]:
         pass
 
-    def save_model(self, path: str = None) -> None:
+    def save_model(self, path: str|None = None) -> None:
         '''
         Saves the model into path , if path is None
         saves the model inside self._file_name

@@ -161,7 +161,7 @@ class RolloutPoliciesTrainer(TrainerBase):
             player_mcts = players[current_player]
 
             # get probabilities
-            probs = player_mcts.get_probs(state)
+            probs = player_mcts.search(state)
 
             # append a tuple of state , probs , game result , current player turn 
             # but leave game result as None because it is not decided yet

@@ -32,6 +32,16 @@ class Human(PlayerBase):
         a = int(input('Choose Action \n'))
         return a
 
+class RandomActionPlayer(PlayerBase):
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def choose_action(self, state: State) -> int:
+        actions_legality = state.get_legal_actions().astype(np.float32)
+        probs = actions_legality / actions_legality.sum()
+        a = np.random.choice(len(actions_legality),p=probs)
+        return a
+
 
 class NNMCTSPlayer(PlayerBase):
     def __init__(self, n_game_actions, wrapper: NNWrapper, n_sims: int, temperature=0.5) -> None:
@@ -42,12 +52,12 @@ class NNMCTSPlayer(PlayerBase):
         self.temperature = temperature
 
     def choose_action(self, state: State) -> int:
-        mcts = NNMCTS(self.n_game_actions, self.wrapper, self.n_sims)
-        t_start = time()
-        probs = mcts.get_probs(state, self.temperature)
+        mcts = NNMCTS(self.n_game_actions, self.wrapper, self.n_sims,temperature=self.temperature)
+        t_start = perf_counter()
+        probs = mcts.search(state)
         a = np.random.choice(len(probs), p=probs)
-        duration = time() - t_start
-        print(f"sims per second\t  {self.n_sims/duration:0.2f}")
+        duration = perf_counter() - t_start
+        # print(f"sims per second\t  {self.n_sims/duration:0.2f}")
         return a
 
 class NNMCTS2Player(PlayerBase):
@@ -59,11 +69,11 @@ class NNMCTS2Player(PlayerBase):
         self.temperature = temperature
 
     def choose_action(self, state: State) -> int:
-        mcts = NNMCTS2(self.n_game_actions, self.evaluator, self.n_sims)
-        t_start = time()
-        probs = mcts.get_probs(state, self.temperature)
+        mcts = NNMCTS2(self.n_game_actions, self.evaluator, self.n_sims,temperature=self.temperature)
+        t_start = perf_counter()
+        probs = mcts.search(state)
         a = np.random.choice(len(probs), p=probs)
-        duration = time() - t_start
+        duration = perf_counter() - t_start
         print(f"sims per second\t  {self.n_sims/duration:0.2f}")
         return a
 
@@ -77,13 +87,17 @@ class AMCTSPlayer(PlayerBase):
         self._temperature = temperature
     
     def choose_action(self, state: State) -> int:
-        mcts = AMCTS(state,self._n_game_actions,self._nn_wrapper.nn,1.0)
+        mcts = AMCTS(self._n_game_actions,self._nn_wrapper.nn,self._n_sims,0,c=1.0,temperature=self._temperature)
         t_start = perf_counter()
-        probs = mcts.search(self._n_sims,0,self._temperature)
+        probs = mcts.search(state)
         a = np.random.choice(self._n_game_actions,p=probs)
         duration = perf_counter() - t_start
-        print(f"sims per second async\t  {self._n_sims/duration:0.2f}")
+        # print(f"sims per second async\t  {self._n_sims/duration:0.2f}")
         return a
+
+
+
+
 # class DualNNMCTSPlayer(PlayerBase):
 #     '''
 #     Used for debug purposes only to check 

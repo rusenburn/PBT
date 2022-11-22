@@ -101,7 +101,7 @@ class OthelloState(State):
     def to_short(self) -> tuple:
         player =self._observation[2,0,0]
         obs:np.ndarray = self._observation[0]-self._observation[1]
-        r = (player,obs.flatten().tobytes())
+        r = (player,self._n_consecutive_skip,*obs.flatten())
         return r
     
     def to_obs(self) -> np.ndarray:

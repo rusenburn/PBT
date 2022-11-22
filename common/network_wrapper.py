@@ -7,6 +7,7 @@ from torch import Tensor
 import torch as T
 from common.utils import get_device
 import os
+import pickle
 
 
 class NNWrapper(ABC):
@@ -73,6 +74,7 @@ class TorchWrapper(NNWrapper):
         path = None
         if folder and file:
             path = os.path.join(folder, file)
+        assert path is not None
         self.nn.load_model(path)
 
     def save_check_point(self, folder: Optional[str] = None, file: Optional[str] = None) -> None:
@@ -83,6 +85,7 @@ class TorchWrapper(NNWrapper):
             finally:
                 ...
             path = os.path.join(folder, file)
+        
         self.nn.save_model(path)
 
 
