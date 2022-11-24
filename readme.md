@@ -16,6 +16,6 @@
 
 ## Steps
 * Download or pull this github repo
-    >git pull https://github.com/rusenburn/PBT.git
+    >git clone https://github.com/rusenburn/PBT.git
 * Install python libraries using requirements.txt file
     >pip install -r requirements.txt

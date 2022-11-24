@@ -75,7 +75,9 @@ class RoundRobin():
 
         # ranking provides the new ranking ordered accoring to the previous ranking
         # ex: if ranking = [3,2,1,0] then the player that took the 0 rank previously fell down
-        # to 3 and the previously ranked 1 now has a new rank of 2 etc            
+        # to 3 and the previously ranked 1 now has a new rank of 2 etc
+        # ex: if ranking = [3,0,1,2] then the player that took the 0 rank previously fell down
+        # to 3 and the previously ranked 1 now has a new rank of 0 which is good for him
         rankings = np.zeros((n_players,), dtype=np.int32)
         for i, row in enumerate(points):
             old_index = row[1]
