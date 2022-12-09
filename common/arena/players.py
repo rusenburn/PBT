@@ -74,7 +74,7 @@ class NNMCTS2Player(PlayerBase):
         probs = mcts.search(state)
         a = np.random.choice(len(probs), p=probs)
         duration = perf_counter() - t_start
-        print(f"sims per second\t  {self.n_sims/duration:0.2f}")
+        # print(f"sims per second\t  {self.n_sims/duration:0.2f}")
         return a
 
 

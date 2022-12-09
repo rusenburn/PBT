@@ -27,8 +27,8 @@ class NNMCTS(MctsBase):
         self.ns: Dict[tuple, int] = {}
         self.ps: Dict[tuple, np.ndarray] = {}
         self.wsa: Dict[tuple, int] = {}  # Wins
-        self.dsa: Dict[tuple, int] = {}  # draws
-        self.lsa: Dict[tuple, int] = {}  # losses
+        self.dsa: Dict[tuple, int] = {}  # Draws
+        self.lsa: Dict[tuple, int] = {}  # Losses
 
     def search(self, state: State) -> np.ndarray:
         return self.get_probs(state)
