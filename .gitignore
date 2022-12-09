@@ -142,3 +142,4 @@ cython_debug/
 
 # tmp
 tmp/*
+ignore.py
